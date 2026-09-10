@@ -1,0 +1,23 @@
+# Generated Vivado project
+vivado_project/
+
+# Vivado generated files
+*.jou
+*.log
+*.str
+*.xpr
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+*.gen/
+
+# Simulation output
+*.vcd
+*.wdb
+*.pb
+
+# Xilinx temporary files
+.Xil/
