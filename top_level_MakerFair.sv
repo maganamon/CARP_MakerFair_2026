@@ -4,7 +4,7 @@
 // "one button per set" lock via buttons_manager, then drives
 // an LED vector per set via btn_to_led. Also drives a countdown
 // timer on the 7-segment display.
-module top_level (
+module top_level_MakerFair (
     input  logic       clk,
     input  logic       rst,
 

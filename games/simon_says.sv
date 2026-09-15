@@ -8,13 +8,11 @@ timescale 1ns / 1ps
     NOT FINISHed
     comments here
 */
-module lsfr_8bit_rng(
-    input  logic       clk,
-    input  logic       rst,
-    input logic [1:0] btn_pressed,
-    input logic 
-    output logic [7:0] output_data
-    //output logic finished
-);
+// module simon_says(
+//     input  logic       clk,
+//     input  logic       rst,
+//     input logic [1:0] btn_pressed,
+//     //output logic finished
+// );
 
-endmodule
+//endmodule
