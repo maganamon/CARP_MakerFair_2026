@@ -1,11 +1,5 @@
 `timescale 1ns / 1ps
 
-// Live demo comment. Pls work
-
-// Top level: reads simon/wire button sets, enforces the
-// "one button per set" lock via buttons_manager, then drives
-// an LED vector per set via btn_to_led. Also drives a countdown
-// timer on the 7-segment display.
 module top_level_MakerFair (
     input  logic       clk,
     input  logic       rst,
@@ -20,25 +14,33 @@ module top_level_MakerFair (
     output logic       out_of_time
 );
 
-    logic [1:0] simon_sel, wire_sel;
+    logic [3:0] simon_signal, wire_signal;
     logic       simon_valid, wire_valid;
 
     buttons_manager u_buttons_manager (
-        .clk         (clk),
-        .rst         (rst),
-        .simon_btns  (simon_btns),
-        .wire_btns   (wire_btns),
-        .simon_sel   (simon_sel),
-        .wire_sel    (wire_sel),
-        .simon_valid (simon_valid),
-        .wire_valid  (wire_valid)
+        .clk          (clk),
+        .rst          (rst),
+        .simon_btns   (simon_btns),
+        .wire_btns    (wire_btns),
+        .simon_signal (simon_signal),
+        .wire_signal  (wire_signal),
+        .simon_valid  (simon_valid),
+        .wire_valid   (wire_valid)
     );
 
-    btn_to_led u_simon_led (
-        .btn_pressed (simon_sel),
-        .valid       (simon_valid),
-        .out_led     (simon_led)
-    );
+    // simon_signal is already one-hot and zeroed when invalid,
+    // so it drives the LEDs directly — no decode needed.
+    assign simon_led = simon_signal;
+
+    // wire_signal / wire_valid are ready to feed into your
+    // not-yet-written "correct wire" checker module, e.g.:
+    // wire_checker u_wire_checker (
+    //     .clk         (clk),
+    //     .rst         (rst),
+    //     .wire_signal (wire_signal),
+    //     .wire_valid  (wire_valid),
+    //     ...
+    // );
 
     // 1Hz tick for the countdown timer
     logic tick_1hz;

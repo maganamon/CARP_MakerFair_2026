@@ -51,6 +51,6 @@ module button_lock #(
     end
  
     assign signal_out = locked ? locked_btn : '0;
-    assign valid       = locked;
+    assign valid      = locked;
  
 endmodule
