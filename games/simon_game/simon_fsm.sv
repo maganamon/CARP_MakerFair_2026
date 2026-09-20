@@ -22,6 +22,7 @@ module simon_fsm(
     input  logic [1:0] rng_lsfr,     // 2-bit slice of lsfr_8bit_rng.output_data
 
     output logic [3:0] leds_o,
+    output logic       push_to_fifo,
     output logic       win,
     output logic       wrong
 );
@@ -45,18 +46,13 @@ module simon_fsm(
     // Game data
     // ------------------------------------------------------------------
     logic [1:0] round;                     // current round: number of steps in play (1..3)
-    logic [1:0] indx;
-    logic [1:0] answ_bank [2:0];
-    logic [1:0] btn_2bit;
+    logic [3:0] answ_bank [2:0];
+    logic [3:0] onehot4_o;
 
-onehot4_to_bin2 u_simon_encode (
-    .onehot_in (btn_pressed),
-    .bin_out   (btn_2bit)
+bin2_to_onehot4 u_simon_decode(
+    .bin_in(rng_lsfr),
+    .onehot_out(onehot4_o)
 );
-
-    // TODO: playback blink sub-state (which half of the 1s/1s cycle you're in)
-    // TODO: pressed-button one-hot -> 2-bit index decode (needed to compare
-    //       btn_pressed against sequence[step_idx], which is stored as 2 bits)
 
     // ------------------------------------------------------------------
     // State register
@@ -76,51 +72,54 @@ onehot4_to_bin2 u_simon_encode (
 
         case (state)
             NEW_GAME: begin
-                win <= 0;
-                wrong <= 0;
-                round <= 2'd0;
-                answ_bank <= '0;
-                next_state <= SETUP;
+                push_to_fifo = 1'b0;
+                wrong = 0;
+                round = 2'd0;
+                answ_bank = '0;
+                next_state = SETUP;
             end
 
             SETUP: begin
-                answ_bank[round] = rng_lsfr;
-                if (round != 2'd3)
-                    next_state <= CHECK;
-                else
-                    next_state <= WIN;
+                push_to_fifo = 1'b1;
+                answ_bank[round] = onehot4_o;
+                leds_o = answ_bank[round];
+                next_state = CHECK;
             end
 
             ADVANCE: begin
-                if (round == 2'b11)
+                if (round == 2'b10)
                     next_state = WIN;
                 else if (wrong == 0) begin
-                    round <= round + 1;
+                    round = round + 1;
                     next_state = SETUP;
                 end
                 else
                     next_state = NEW_GAME;
             end
             CHECK: begin
-                leds_o = answ_bank[round]
+                push_to_fifo = 1'b0;
+                leds_o = answ_bank[round];
                 if (btn_valid) begin
-                    if(answ_bank[round] == btn_2bit)
-                        next_state <= ADVANCE;
+                    if(answ_bank[round] == btn_pressed)
+                        next_state = ADVANCE;
+                    else
+                        next_state = WRONG;
                 end
                 else
                     next_state = CHECK;
             end
             WIN: begin
-                win = 1;
+                leds_o = 4'b1111;
                 next_state = WIN;
             end
 
             WRONG: begin
-                round <= 0;
+                round = 0;
                 next_state = NEW_GAME;
                 wrong = 1'b1;
             end
-            default: next_state = NEW_GAME;
+            default: 
+            next_state = NEW_GAME;
         endcase
     end
 
@@ -128,11 +127,7 @@ onehot4_to_bin2 u_simon_encode (
     // Output logic
     // ------------------------------------------------------------------
     always_comb begin
-        win    = (state == WIN);
-        leds_o = {4{win}};
-
-        // TODO: in PLAYBACK, decode sequence[step_idx] (2-bit) to one-hot leds_o,
-        //       gated by blink on/off sub-state
+        win = (state == WIN);
     end
 
 endmodule

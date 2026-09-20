@@ -7,7 +7,7 @@
 module btn_to_led(
 
     input  logic [3:0] btn_pressed,
-    output  logic       valid,
+    output logic       valid,
 
     output logic [1:0] out_led
 
@@ -22,19 +22,19 @@ module btn_to_led(
             case (btn_pressed)
                 4'b0001: begin
                     out_led = 2'b00;
-                    valid = 1'b0;
+                    valid = 1'b1;
                 end
                 4'b0010: begin
                     out_led = 2'b01;
-                    valid = 1'b0;
+                    valid = 1'b1;
                 end
                 4'b0100: begin
                     out_led = 2'b10;
-                    valid = 1'b0;
+                    valid = 1'b1;
                 end
                 4'b1000: begin
                     out_led = 2'b11;
-                    valid = 1'b0;
+                    valid = 1'b1;
                 end
                 default: begin
                     out_led = 2'b00;
