@@ -10,6 +10,9 @@
   waits for the user to press the same N buttons in order. Correct ->
   advance round (append one more random step, replay whole sequence).
   Wrong at any point -> LOSE.
+
+  The LED controller's FIFO plays the sequence back; this FSM just waits
+  in PLAY for 2 ticks per step (1s on + 1s off) before taking button presses.
 */
 
 module simon_fsm(
@@ -27,17 +30,17 @@ module simon_fsm(
     output logic       wrong
 );
 
-
     // ------------------------------------------------------------------
     // State encoding
     // ------------------------------------------------------------------
     typedef enum logic [2:0] {
-        NEW_GAME,        // waiting for game start
-        SETUP,
-        ADVANCE,     // correct + more rounds to go -> back to NEW_STEP
-        CHECK,       // compare last press against expected step
-        WIN,         // correct + round == MAX_ROUNDS -> done
-        WRONG         // wrong press -> done
+        NEW_GAME,    // clear round counter, start a game
+        SETUP,       // store a new random step in answ_bank[round]
+        ADVANCE,     // correct: more rounds -> SETUP, last round -> WIN
+        CHECK,       // compare press against expected step
+        WIN,         // all rounds correct -> stay here until reset
+        WRONG,       // wrong press -> back to NEW_GAME
+        PLAY         // NEW: wait while the sequence plays (2 ticks per step)
     } state_t;
 
     state_t state, next_state;
@@ -45,14 +48,16 @@ module simon_fsm(
     // ------------------------------------------------------------------
     // Game data
     // ------------------------------------------------------------------
-    logic [1:0] round;                     // current round: number of steps in play (1..3)
-    logic [3:0] answ_bank [2:0];
+    logic [1:0] round;                  // index of current step (0..2)
+    logic [3:0] answ_bank [2:0];        // stored steps
     logic [3:0] onehot4_o;
+    logic [1:0] idx;                    // NEW: which step the player must press next
+    logic [2:0] ticks;                  // NEW: ticks waited in PLAY
 
-bin2_to_onehot4 u_simon_decode(
-    .bin_in(rng_lsfr),
-    .onehot_out(onehot4_o)
-);
+    bin2_to_onehot4 u_simon_decode(
+        .bin_in    (rng_lsfr),
+        .onehot_out(onehot4_o)
+    );
 
     // ------------------------------------------------------------------
     // State register
@@ -65,69 +70,84 @@ bin2_to_onehot4 u_simon_decode(
     end
 
     // ------------------------------------------------------------------
-    // Next-state logic
+    // Game data registers (everything that must be remembered lives here)
+    // ------------------------------------------------------------------
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            round     <= '0;
+            idx       <= '0;
+            ticks     <= '0;
+            answ_bank[0] <= 4'b0000;
+            answ_bank[1] <= 4'b0000;
+            answ_bank[2] <= 4'b0000;
+        end else begin
+            case (state)
+                NEW_GAME: round <= '0;
+                SETUP: begin
+                    answ_bank[round] <= onehot4_o;
+                    idx   <= '0;                    // NEW
+                    ticks <= '0;                    // NEW
+                end
+                PLAY:     if (tick_1hz) ticks <= ticks + 1'b1;          // NEW
+                CHECK:    if (btn_valid && btn_pressed == answ_bank[idx] && idx != round)
+                              idx <= idx + 1'b1;                        // NEW: next step
+                ADVANCE:  if (round != 2'd2) round <= round + 1'b1;
+                default:  ;
+            endcase
+        end
+    end
+
+    // ------------------------------------------------------------------
+    // Next-state + output logic (no storage: every output has a default)
     // ------------------------------------------------------------------
     always_comb begin
-        next_state = state;
+        next_state   = state;
+        push_to_fifo = 1'b0;
+        wrong        = 1'b0;
+        leds_o       = answ_bank[round];
 
         case (state)
-            NEW_GAME: begin
-                push_to_fifo = 1'b0;
-                wrong = 0;
-                round = 2'd0;
-                answ_bank = '0;
-                next_state = SETUP;
-            end
+            NEW_GAME: next_state = SETUP;
 
             SETUP: begin
                 push_to_fifo = 1'b1;
-                answ_bank[round] = onehot4_o;
-                leds_o = answ_bank[round];
-                next_state = CHECK;
+                leds_o       = onehot4_o;   // new step (stored at end of this cycle)
+                next_state   = PLAY;          // was CHECK
+            end
+
+            PLAY: begin                                     // NEW
+                // round+1 steps x 2 ticks each; {round,1'b1} = 2*round+1
+                if (tick_1hz && ticks == {round, 1'b1})
+                    next_state = CHECK;
+            end
+
+            CHECK: begin
+                if (btn_valid) begin
+                    if (btn_pressed != answ_bank[idx])   // was answ_bank[round]
+                        next_state = WRONG;
+                    else if (idx == round)               // NEW: last step of this round
+                        next_state = ADVANCE;
+                end
             end
 
             ADVANCE: begin
-                if (round == 2'b10)
+                if (round == 2'd2)
                     next_state = WIN;
-                else if (wrong == 0) begin
-                    round = round + 1;
+                else
                     next_state = SETUP;
-                end
-                else
-                    next_state = NEW_GAME;
-            end
-            CHECK: begin
-                push_to_fifo = 1'b0;
-                leds_o = answ_bank[round];
-                if (btn_valid) begin
-                    if(answ_bank[round] == btn_pressed)
-                        next_state = ADVANCE;
-                    else
-                        next_state = WRONG;
-                end
-                else
-                    next_state = CHECK;
-            end
-            WIN: begin
-                leds_o = 4'b1111;
-                next_state = WIN;
             end
 
+            WIN: leds_o = 4'b1111;
+
             WRONG: begin
-                round = 0;
+                wrong      = 1'b1;
                 next_state = NEW_GAME;
-                wrong = 1'b1;
             end
-            default: 
-            next_state = NEW_GAME;
+
+            default: next_state = NEW_GAME;
         endcase
     end
 
-    // ------------------------------------------------------------------
-    // Output logic
-    // ------------------------------------------------------------------
-    always_comb begin
-        win = (state == WIN);
-    end
+    assign win = (state == WIN);
 
 endmodule
