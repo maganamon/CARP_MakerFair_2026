@@ -72,11 +72,11 @@ module sync_fifo_3x4 #(
         else begin
             if (push && !full) begin
                 mem[wr_ptr] <= wr_data;
-                wr_ptr      <= (wr_ptr == DEPTH-1) ? '0 : wr_ptr + 1'b1;
+                wr_ptr <= (wr_ptr == PTR_W'(DEPTH-1)) ? '0 : wr_ptr + 1'b1;
             end
 
             if (pop && !empty) begin
-                rd_ptr <= (rd_ptr == DEPTH-1) ? '0 : rd_ptr + 1'b1;
+                rd_ptr <= (rd_ptr == PTR_W'(DEPTH-1)) ? '0 : rd_ptr + 1'b1;
             end
 
             case ({push && !full, pop && !empty})
