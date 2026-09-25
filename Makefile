@@ -45,3 +45,9 @@ clean:
 	rm -rf build
 	rm -rf obj_dir
 	rm -f *.vcd
+
+win_build:
+	& "C:\Xilinx\2025.1\Vivado\bin\vivado.bat" -mode batch -source ".\scripts\create_project.tcl"
+
+win_open:
+	& "C:\Xilinx\2025.1\Vivado\bin\vivado.bat" ".\vivado_project\MakerFaire_2026.xpr"
