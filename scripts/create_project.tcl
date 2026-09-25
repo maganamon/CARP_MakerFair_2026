@@ -1,4 +1,3 @@
-```tcl
 # ============================================================
 # MakerFaire 2026
 # Vivado Project Creation Script
@@ -227,4 +226,3 @@ puts ""
 puts "Simulation files added:"
 puts "    [llength $tb_files]"
 puts "========================================"
-```
