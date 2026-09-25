@@ -52,17 +52,6 @@ module top_level_MakerFair (
 
 
     // ============================================================
-    // Simon LEDs
-    // ============================================================
-
-    btn_to_led u_simon_led (
-        .btn_pressed (simon_signal),
-        .valid       (simon_valid),
-        .out_led     (simon_led)
-    );
-
-
-    // ============================================================
     // 1 Hz Tick Generator
     // ============================================================
 
@@ -107,5 +96,65 @@ module top_level_MakerFair (
         .CATHODES (seg),
         .ANODES   (an)
     );
+
+// ============================================================
+// LFSR
+// ============================================================
+
+logic [7:0] rng_data;
+
+lsfr_8bit_rng u_rng (
+    .clk         (clk),
+    .rst         (rst),
+    .output_data (rng_data)
+);
+
+
+// ============================================================
+// Simon FSM
+// ============================================================
+
+logic [3:0] simon_fsm_led;
+logic       simon_push;
+logic       simon_win;
+logic       simon_wrong;
+
+simon_fsm u_simon_fsm (
+    .clk          (clk),
+    .rst          (rst),
+
+    .tick_1hz     (tick_1hz),
+
+    .btn_pressed  (simon_signal),
+    .btn_valid    (simon_valid),
+
+    .rng_lsfr     (rng_data[1:0]),
+
+    .leds_o       (simon_fsm_led),
+    .push_to_fifo (simon_push),
+    .win          (simon_win),
+    .wrong        (simon_wrong)
+);
+
+
+// ============================================================
+// Simon LED Controller
+// ============================================================
+
+simon_led_controller u_simon_led_controller (
+    .clk             (clk),
+    .tick            (tick_1hz),
+    .rst             (rst),
+
+    .valid           (simon_valid),
+    .win             (simon_win),
+    .push            (simon_push),
+
+    .btn_pressed     (simon_signal),
+
+    .fifo_write_data (simon_fsm_led),
+
+    .leds_o          (simon_led)
+);
 
 endmodule
