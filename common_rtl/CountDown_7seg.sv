@@ -23,7 +23,7 @@ module CountDown_7seg(
     logic [3:0] sec_tens;
     logic [3:0] sec_ones;
 
-    assign MODE_OUT = 1'b1;
+    assign MODE_OUT = 1'b0;
 
     // MM:SS
     assign DATA_OUT = {
