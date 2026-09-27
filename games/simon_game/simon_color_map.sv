@@ -10,7 +10,8 @@
   The LED that lights tells the player which button to press, and the
   rule changes with the number of strikes (lives lost, from lives_manager):
 
-                   LED shown:   blue    yellow   green    red
+             LED shown:         blue    yellow   green    red
+             ---------------------------------------------------------
     0 strikes -> press:         red     green    yellow   blue
     1 strike  -> press:         yellow  blue     red      green
     2 strikes -> press:         green   red      blue     yellow
