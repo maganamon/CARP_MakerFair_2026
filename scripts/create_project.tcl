@@ -88,7 +88,10 @@ foreach file [glob -nocomplain "$repo_dir/inputs_rtl/*.sv"] {
 foreach game_dir [glob -nocomplain -types d "$repo_dir/games/*"] {
 
     foreach file [glob -nocomplain "$game_dir/*.sv"] {
-        lappend rtl_files $file
+        # Testbenches (*_tb.sv) go in the simulation fileset only
+        if {![string match "*_tb.sv" $file]} {
+            lappend rtl_files $file
+        }
     }
 
 }
@@ -204,10 +207,14 @@ update_compile_order -fileset sim_1
 
 
 # ------------------------------------------------------------
-# Save Project
+# Close Project
+#
+# No save step needed: in project mode Vivado writes every change
+# (add_files, set_property, ...) into the .xpr as it happens.
+# save_project_as failed here because the .xpr is already open.
 # ------------------------------------------------------------
 
-save_project $project_name $project_dir
+close_project
 
 
 puts ""
