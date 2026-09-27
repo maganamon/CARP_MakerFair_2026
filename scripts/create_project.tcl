@@ -207,7 +207,7 @@ update_compile_order -fileset sim_1
 # Save Project
 # ------------------------------------------------------------
 
-save_project_as $project_name $project_dir
+save_project $project_name $project_dir
 
 
 puts ""

@@ -11,6 +11,10 @@ ALL_SV := $(RTL_FILES) $(TB_FILES)
 SIM_OUT := build/sim
 WAVE    := wave.vcd
 
+TOP_SRCS := top_level_MakerFair.sv common_rtl/*.sv inputs_rtl/*.sv \
+            games/simon_game/simon_fsm.sv \
+            games/simon_game/simon_led_controller.sv \
+            games/simon_game/simon_press_echo.sv
 
 all: lint icarus sim
 
@@ -46,16 +50,12 @@ clean:
 	rm -rf obj_dir
 	rm -f *.vcd
 
+
 win_build:
 	& "C:\Xilinx\2025.1\Vivado\bin\vivado.bat" -mode batch -source ".\scripts\create_project.tcl"
 
 win_open:
 	& "C:\Xilinx\2025.1\Vivado\bin\vivado.bat" ".\vivado_project\MakerFaire_2026.xpr"
-
-TOP_SRCS := top_level_MakerFair.sv common_rtl/*.sv inputs_rtl/*.sv \
-            games/simon_game/simon_fsm.sv \
-            games/simon_game/simon_led_controller.sv \
-            games/simon_game/simon_press_echo.sv
 
 msy_build:
 	"/c/Xilinx/2025.1/Vivado/bin/vivado.bat" -mode batch -source "./scripts/create_project.tcl"
