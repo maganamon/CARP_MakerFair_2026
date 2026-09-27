@@ -19,6 +19,7 @@ module top_level_MakerFair #(
 
     output logic [3:0] simon_led,
     output logic [2:0] lives_led,     // LD15, LD14, LD13: shared lives for ALL games
+    output logic       wire_led,
 
     output logic [7:0] seg,
     output logic [3:0] an,
@@ -30,6 +31,7 @@ module top_level_MakerFair #(
     inout  wire        disp_sda       // HT16K33 SDA
 );
 
+    assign wire_led = wire_solved;
     // ============================================================
     // NEW: Debounce the Simon buttons (sync + 10 ms stable)
     // ============================================================
@@ -322,4 +324,18 @@ module top_level_MakerFair #(
         .digit2     (ser2),
         .digit3     (ser3)
     );
+
+        onboard_game u_onboard_game (
+        .clk         (clk),
+        .rst         (games_rst),         // stops when out of lives
+        .rng         (rng_data),
+        .serial_idx  (wire_serial),       // same serial as on the display
+        .sw          (sw[7:0]),
+        .submit      (btnU_db),           // btnU after btn_debounce
+        .led         (onboard_led),       // LD0-LD7
+        .answ_random (),                  // not needed any more
+        .solved      (onboard_solved),
+        .wrong       (onboard_wrong)      // shared lives
+    );
+
 endmodule

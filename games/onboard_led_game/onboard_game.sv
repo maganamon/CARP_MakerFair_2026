@@ -6,8 +6,15 @@
 
 /*
   1. Sample the LFSR once for an 8-bit pattern -> shown on LD0-LD7.
-  2. Wait 8 clocks (so the LFSR has shifted in all-new bits) and sample it
-     again for a 2-bit operation code, answ_random:
+  2. The operation comes from the serial number on the 14-segment display
+     (serial_idx from the wire game), using two questions from the manual:
+
+       Q1: does the serial start with a VOWEL?
+       Q2: do its two numbers count DOWN (e.g. B7K2: 7 -> 2) or UP?
+
+                      numbers count DOWN          numbers count UP
+       vowel          E5N3, O7P1: XOR 1100_1100   A4M6, U2X8: XOR 0011_0011
+       consonant      B7K2, Z9D2: flip all bits   T3R8, C1L4: AND 1100_1100
 
        answ_random   player must enter on SW0-SW7
          2'b00       pattern XOR 1100_1100
@@ -15,8 +22,7 @@
          2'b10       ~pattern            (flip every bit)
          2'b11       pattern AND 1100_1100
 
-     answ_random is an output so a hint display (14-segment, later) can
-     show which operation to do.
+     answ_random is still an output (handy for debug / a hint display).
   3. Player sets the switches and presses btnU (submit):
        correct -> solved = 1, LD0-LD7 all on, game done until reset
        wrong   -> wrong pulses for 1 clock (take a life), same puzzle stays
@@ -31,6 +37,7 @@ module onboard_game (
     input  logic       rst,
 
     input  logic [7:0] rng,           // lsfr_8bit_rng.output_data
+    input  logic [2:0] serial_idx,    // serial on the display (wire_game.serial_idx)
     input  logic [7:0] sw,            // SW0-SW7
     input  logic       submit,        // debounced btnU (level)
 
@@ -45,7 +52,7 @@ module onboard_game (
 
     typedef enum logic [1:0] {
         GEN_PATTERN,    // sample the LFSR for the LED pattern
-        GEN_OP,         // wait 8 clocks, sample the LFSR for answ_random
+        GEN_OP,         // wait 8 clocks, look up answ_random from the serial
         PLAY,           // wait for submit
         SOLVED          // correct answer entered
     } state_t;
@@ -68,6 +75,31 @@ module onboard_game (
     end
 
     assign submit_pulse = submit & ~submit_d;
+
+    // ------------------------------------------------------------------
+    // Serial number -> operation (vowel? x numbers count down/up?)
+    //   idx serial  vowel  numbers  op
+    //    0  B7K2    no     down     10 flip
+    //    1  A4M6    yes    up       01 XOR 0011_0011
+    //    2  T3R8    no     up       11 AND 1100_1100
+    //    3  E5N3    yes    down     00 XOR 1100_1100
+    //    4  C1L4    no     up       11 AND 1100_1100
+    //    5  O7P1    yes    down     00 XOR 1100_1100
+    //    6  Z9D2    no     down     10 flip
+    //    7  U2X8    yes    up       01 XOR 0011_0011
+    // ------------------------------------------------------------------
+    function automatic logic [1:0] op_for_serial(input logic [2:0] idx);
+        case (idx)
+            3'd0:    op_for_serial = 2'b10;
+            3'd1:    op_for_serial = 2'b01;
+            3'd2:    op_for_serial = 2'b11;
+            3'd3:    op_for_serial = 2'b00;
+            3'd4:    op_for_serial = 2'b11;
+            3'd5:    op_for_serial = 2'b00;
+            3'd6:    op_for_serial = 2'b10;
+            default: op_for_serial = 2'b01;
+        endcase
+    endfunction
 
     // ------------------------------------------------------------------
     // Correct answer for the current puzzle
@@ -106,8 +138,9 @@ module onboard_game (
 
                 GEN_OP: begin
                     wait_cnt <= wait_cnt + 1'b1;
+                    // wait 8 clocks so the wire game has picked its serial
                     if (wait_cnt == 3'd7) begin
-                        answ_random <= rng[1:0];
+                        answ_random <= op_for_serial(serial_idx);
                         state       <= PLAY;
                     end
                 end
