@@ -23,7 +23,11 @@ module top_level_MakerFair #(
     output logic [7:0] seg,
     output logic [3:0] an,
 
-    output logic       out_of_time
+    output logic       out_of_time,
+
+    // i2c signals
+    inout  wire        disp_scl,      // HT16K33 SCL
+    inout  wire        disp_sda       // HT16K33 SDA
 );
 
     // ============================================================
@@ -262,4 +266,32 @@ module top_level_MakerFair #(
         .leds_o          (simon_led)
     );
 
+
+    // ============================================================
+    // 14-segment display (HT16K33 over I2C)
+    // ============================================================
+
+    // Segment patterns (Adafruit 14-segment layout; check on your module)
+    localparam logic [15:0] SEG_C = 16'h0039;
+    localparam logic [15:0] SEG_A = 16'h00F7;
+    localparam logic [15:0] SEG_R = 16'h20F3;
+    localparam logic [15:0] SEG_P = 16'h00F3;
+
+    ht16k33_driver #(
+        .CLK_HZ         (100_000_000),
+        .I2C_HZ         (100_000),
+        .I2C_ADDR       (7'h70),
+        .BRIGHTNESS     (4'hF),
+        .POWERUP_CYCLES (1_000_000)       // 10 ms
+    ) u_display (
+        .clk       (clk),
+        .rst       (rst),
+        .digit0    (SEG_C),               // shows "CARP" as a first test
+        .digit1    (SEG_A),
+        .digit2    (SEG_R),
+        .digit3    (SEG_P),
+        .scl       (disp_scl),
+        .sda       (disp_sda),
+        .ack_error (disp_err)
+    );
 endmodule
