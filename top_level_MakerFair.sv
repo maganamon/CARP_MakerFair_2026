@@ -17,7 +17,7 @@ module top_level_MakerFair #(
     input  logic [3:0] simon_btns,
     input  logic [3:0] wire_btns,
 
-    input logic        timer_sw
+    input logic        timer_sw,
 
     output logic [3:0] simon_led,
     output logic [2:0] lives_led,     // LD15, LD14, LD13: shared lives for ALL games
