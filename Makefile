@@ -17,7 +17,10 @@ TOP_SRCS := top_level_MakerFair.sv common_rtl/*.sv inputs_rtl/*.sv \
             games/simon_game/simon_press_echo.sv \
             games/simon_game/simon_color_map.sv \
 			drivers/ht16k33_driver/ht16k33_driver.sv \
-			drivers/i2c/i2c_master.v
+			drivers/i2c/i2c_master.v \
+			games/wire_game/wire_game_fsm.sv \
+			games/wire_game/wire_game.sv \
+			games/wire_game/wire_serial_rom.sv
 
 all: lint icarus sim
 
@@ -72,3 +75,7 @@ top-sim:
 
 top-lint:
 	verilator --lint-only --timing -Wall --top-module top_level_MakerFair_tb tb/top_level_MakerFair_tb.sv $(TOP_SRCS)
+
+wire-sim:
+	iverilog -g2012 -s wire_display_tb -o wire_tb.vvp tb/wire_display_tb.sv $(TOP_SRCS)
+	vvp wire_tb.vvp

@@ -191,13 +191,13 @@ set_property PULLDOWN true [get_ports {wire_btns[1]}]
 set_property PULLDOWN true [get_ports {wire_btns[2]}]
 set_property PULLDOWN true [get_ports {wire_btns[3]}]
 
-##Pmod Header JC
-##Sch name = JC1
-#set_property PACKAGE_PIN K17 [get_ports {JC[0]}]					
-	#set_property IOSTANDARD LVCMOS33 [get_ports {JC[0]}]
-##Sch name = JC2
-#set_property PACKAGE_PIN M18 [get_ports {JC[1]}]					
-	#set_property IOSTANDARD LVCMOS33 [get_ports {JC[1]}]
+#Pmod Header JC
+#Sch name = JC1
+set_property PACKAGE_PIN K17 [get_ports {disp_scl}]					
+	set_property IOSTANDARD LVCMOS33 [get_ports {disp_scl}]
+#Sch name = JC2
+set_property PACKAGE_PIN M18 [get_ports {disp_sda}]					
+	set_property IOSTANDARD LVCMOS33 [get_ports {disp_sda}]
 ##Sch name = JC3
 #set_property PACKAGE_PIN N17 [get_ports {JC[2]}]					
 	#set_property IOSTANDARD LVCMOS33 [get_ports {JC[2]}]
@@ -216,6 +216,8 @@ set_property PULLDOWN true [get_ports {wire_btns[3]}]
 ##Sch name = JC10
 #set_property PACKAGE_PIN R18 [get_ports {JC[7]}]					
 	#set_property IOSTANDARD LVCMOS33 [get_ports {JC[7]}]
+
+set_property PULLUP true [get_ports {disp_scl disp_sda}]
 
 ############################
 # SIMON SAYS GAME BUTTONS

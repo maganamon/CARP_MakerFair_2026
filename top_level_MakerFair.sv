@@ -70,7 +70,7 @@ module top_level_MakerFair #(
         .rst          (rst),
 
         .simon_btns   (simon_btns_db),    // was simon_btns
-        .wire_btns    (wire_btns),
+        .wire_btns    (wire_btns_db),
 
         .simon_signal (simon_signal),
         .wire_signal  (wire_signal),
@@ -172,7 +172,6 @@ module top_level_MakerFair #(
     logic onboard_wrong;    // TODO: drive from the onboard LED game
     logic game_over;
 
-    assign wire_wrong    = 1'b0;
     assign onboard_wrong = 1'b0;
 
     lives_manager #(
@@ -271,12 +270,6 @@ module top_level_MakerFair #(
     // 14-segment display (HT16K33 over I2C)
     // ============================================================
 
-    // Segment patterns (Adafruit 14-segment layout; check on your module)
-    localparam logic [15:0] SEG_C = 16'h0039;
-    localparam logic [15:0] SEG_A = 16'h00F7;
-    localparam logic [15:0] SEG_R = 16'h20F3;
-    localparam logic [15:0] SEG_P = 16'h00F3;
-
     ht16k33_driver #(
         .CLK_HZ         (100_000_000),
         .I2C_HZ         (100_000),
@@ -286,12 +279,47 @@ module top_level_MakerFair #(
     ) u_display (
         .clk       (clk),
         .rst       (rst),
-        .digit0    (SEG_C),               // shows "CARP" as a first test
-        .digit1    (SEG_A),
-        .digit2    (SEG_R),
-        .digit3    (SEG_P),
+        .digit0    (ser0),               // shows "CARP" as a first test
+        .digit1    (ser1),
+        .digit2    (ser2),
+        .digit3    (ser3),
         .scl       (disp_scl),
         .sda       (disp_sda),
-        .ack_error (disp_err)
+        .ack_error ()
+    );
+
+    logic [3:0] wire_btns_db;
+
+    btn_debounce #(
+        .WIDTH        (4),
+        .STABLE_COUNT (DEBOUNCE_COUNT)
+    ) u_wire_debounce (
+        .clk     (clk),
+        .rst     (rst),
+        .btn_in  (wire_btns),
+        .btn_out (wire_btns_db)
+    );
+
+        logic [2:0]  wire_serial;
+    logic        wire_solved;
+    logic [15:0] ser0, ser1, ser2, ser3;
+
+    wire_game u_wire_game (
+        .clk        (clk),
+        .rst        (games_rst),          // stops when out of lives
+        .rng        (rng_data[4:2]),      // different bits than Simon's [1:0]
+        .btn_signal (wire_signal),
+        .btn_valid  (wire_valid),
+        .serial_idx (wire_serial),
+        .solved     (wire_solved),
+        .wrong      (wire_wrong)          // takes a shared life
+    );
+
+    wire_serial_rom u_wire_serial (
+        .serial_idx (wire_serial),
+        .digit0     (ser0),
+        .digit1     (ser1),
+        .digit2     (ser2),
+        .digit3     (ser3)
     );
 endmodule

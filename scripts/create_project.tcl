@@ -73,6 +73,24 @@ foreach file [glob -nocomplain "$repo_dir/inputs_rtl/*.sv"] {
 }
 
 # ------------------------------------------------------------
+# Driver RTL
+#
+# drivers/
+# ├── ht16k33_driver/   ht16k33_driver.sv
+# └── i2c/              i2c_master.v   (plain Verilog, hence *.v too)
+# ------------------------------------------------------------
+
+foreach drv_dir [glob -nocomplain -types d "$repo_dir/drivers/*"] {
+
+    foreach file [glob -nocomplain "$drv_dir/*.sv" "$drv_dir/*.v"] {
+        if {![string match "*_tb.sv" $file]} {
+            lappend rtl_files $file
+        }
+    }
+
+}
+
+# ------------------------------------------------------------
 # Game RTL
 #
 # Games are stored in subdirectories:
@@ -203,6 +221,14 @@ if {[llength $tb_files] > 0} {
 # ------------------------------------------------------------
 
 update_compile_order -fileset sources_1
+
+# Several testbenches live in sim_1; pick the one Vivado runs by default.
+# (Change it in Vivado: Simulation Sources -> right-click -> Set as Top.)
+if {[llength [get_files -quiet -of_objects [get_filesets sim_1] "*top_level_MakerFair_tb.sv"]] > 0} {
+    set_property top top_level_MakerFair_tb [get_filesets sim_1]
+    set_property top_lib xil_defaultlib [get_filesets sim_1]
+}
+
 update_compile_order -fileset sim_1
 
 
