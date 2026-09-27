@@ -15,9 +15,9 @@
     lib/clock/xc7/clock_480p.sv    -> drivers/vga/clock_480p.sv
     lib/display/display_480p.sv    -> drivers/vga/display_480p.sv
 
-  Simulators (Icarus, Verilator, xsim) do not have the Xilinx MMCM, so when
-  not synthesizing the pixel clock is simply 100 MHz / 4 = 25 MHz.
-  Vivado synthesis defines SYNTHESIS, so the board uses the real MMCM.
+  clock_480p uses the Xilinx MMCME2_BASE and BUFG primitives. Vivado has
+  them built in. For Icarus / Verilator, add tb/sim_models/xilinx_sim_models.sv
+  to the simulation file list (simple stand-ins; never used by Vivado).
 */
 
 module vga_wires (
@@ -36,9 +36,8 @@ module vga_wires (
     logic clk_pix;
     logic clk_pix_locked;
 
-`ifdef SYNTHESIS
     /* verilator lint_off PINCONNECTEMPTY */
-    clock_480p u_clock (
+    clock_480p u_clock (                    // 25.2 MHz pixel clock from the MMCM
         .clk_100m       (clk),
         .rst            (1'b0),             // MMCM locks on its own after configuration
         .clk_pix        (clk_pix),
@@ -46,12 +45,6 @@ module vga_wires (
         .clk_pix_locked (clk_pix_locked)
     );
     /* verilator lint_on PINCONNECTEMPTY */
-`else
-    logic [1:0] div = 2'd0;                 // simulation only: 100 MHz / 4
-    always_ff @(posedge clk) div <= div + 1'b1;
-    assign clk_pix        = div[1];
-    assign clk_pix_locked = 1'b1;
-`endif
 
     // Hold the timing generator in reset until the pixel clock is stable
     logic rst_pix;
