@@ -57,6 +57,12 @@ TOP_SRCS := top_level_MakerFair.sv common_rtl/*.sv inputs_rtl/*.sv \
             games/simon_game/simon_led_controller.sv \
             games/simon_game/simon_press_echo.sv
 
+msy_build:
+	"/c/Xilinx/2025.1/Vivado/bin/vivado.bat" -mode batch -source "./scripts/create_project.tcl"
+
+msy_open:
+	"/c/Xilinx/2025.1/Vivado/bin/vivado.bat" "./vivado_project/MakerFaire_2026.xpr"
+
 top-sim:
 	iverilog -g2012 -s top_level_MakerFair_tb -o top_tb.vvp tb/top_level_MakerFair_tb.sv $(TOP_SRCS)
 	vvp top_tb.vvp
