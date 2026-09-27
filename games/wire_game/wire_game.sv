@@ -20,6 +20,10 @@
   3. solved latches: once the right wire is pressed the game stays solved
      (until reset) and further presses are ignored.
      wrong is a 1-clock pulse for lives_manager; the same serial stays up.
+
+  4. cut[i] = 1 once wire i has been cut (its button pressed), for the VGA
+     picture. A wire that is already cut can't be cut again: pressing its
+     button a second time does nothing (no second life lost).
 */
 
 module wire_game (
@@ -32,7 +36,8 @@ module wire_game (
 
     output logic [2:0] serial_idx,   // which of the 8 serial numbers is shown
     output logic       solved,
-    output logic       wrong         // 1-clock pulse -> lives_manager
+    output logic       wrong,        // 1-clock pulse -> lives_manager
+    output logic [3:0] cut           // wires cut so far (VGA)
 );
 
     logic started;
@@ -40,7 +45,8 @@ module wire_game (
     logic press;
     logic fsm_win, fsm_wrong;
 
-    assign press = btn_valid & ~valid_d & started;     // first clock of a press
+    // first clock of a press, on a wire that is still whole
+    assign press = btn_valid & ~valid_d & started & ((btn_signal & cut) == 4'b0000);
 
     wire_game_fsm u_wire_game_fsm (
         .serial_number_idx (serial_idx),
@@ -57,6 +63,7 @@ module wire_game (
             valid_d    <= 1'b0;
             solved     <= 1'b0;
             wrong      <= 1'b0;
+            cut        <= 4'b0000;
         end else begin
             valid_d <= btn_valid;
             wrong   <= 1'b0;                   // default: no pulse
@@ -65,6 +72,7 @@ module wire_game (
                 serial_idx <= rng;             // pick this game's serial number
                 started    <= 1'b1;
             end else if (!solved && press) begin
+                cut <= cut | btn_signal;       // this wire is now cut
                 if (fsm_win)        solved <= 1'b1;
                 else if (fsm_wrong) wrong  <= 1'b1;
             end
