@@ -26,6 +26,10 @@ module top_level_MakerFair #(
 
     output logic       out_of_time,
 
+    input  logic [7:0] sw,            // SW0-SW7: onboard game answer
+    input  logic       btnU,          // top button: submit
+    output logic [7:0] onboard_led,   // LD0-LD7: the pattern to work from
+
     // i2c signals
     inout  wire        disp_scl,      // HT16K33 SCL
     inout  wire        disp_sda       // HT16K33 SDA
