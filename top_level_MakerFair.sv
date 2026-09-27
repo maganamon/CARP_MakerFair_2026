@@ -23,8 +23,8 @@ module top_level_MakerFair #(
     output logic [7:0] seg,
     output logic [3:0] an,
 
-    output logic       out_of_time
-    output logic [3:0] debug_btn_led,
+    output logic       out_of_time,
+    output logic [3:0] debug_btn_led
 );
 assign debug_btn_led = simon_btns;
     // ============================================================
