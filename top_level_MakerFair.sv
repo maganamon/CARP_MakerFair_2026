@@ -32,12 +32,48 @@ module top_level_MakerFair #(
 
     // i2c signals
     inout  wire        disp_scl,      // HT16K33 SCL
-    inout  wire        disp_sda       // HT16K33 SDA
+    inout  wire        disp_sda,      // HT16K33 SDA
+
+    // VGA
+    output logic [3:0] vgaRed,
+    output logic [3:0] vgaGreen,
+    output logic [3:0] vgaBlue,
+    output logic       Hsync,
+    output logic       Vsync
 );
 
-    assign wire_led = wire_solved;
     // ============================================================
-    // NEW: Debounce the Simon buttons (sync + 10 ms stable)
+    // Signals shared between sections (declared before first use)
+    // ============================================================
+
+    // wire game
+    logic [3:0]  wire_btns_db;
+    logic [3:0]  wire_signal;
+    logic        wire_valid;
+    logic [2:0]  wire_serial;
+    logic        wire_solved;
+    logic        wire_wrong;
+    logic [3:0]  wire_cut;
+    logic [15:0] ser0, ser1, ser2, ser3;
+
+    // onboard game
+    logic        btnU_db;
+    logic        onboard_solved;
+    logic        onboard_wrong;
+
+    // lives + end of game
+    logic        simon_wrong;
+    logic [1:0]  strikes;         // lives lost, sets the Simon color rules
+    logic        game_over;       // out of lives
+    logic        bomb_won;        // everything solved in time
+    logic        bomb_lost;       // out of time or out of lives
+    logic        games_rst;
+
+    assign wire_led = wire_solved;
+
+
+    // ============================================================
+    // Debounce the Simon and wire buttons (sync + 10 ms stable)
     // ============================================================
 
     logic [3:0] simon_btns_db;
@@ -52,30 +88,29 @@ module top_level_MakerFair #(
         .btn_out (simon_btns_db)
     );
 
-
-    // ============================================================
-    // Button Manager Signals
-    // ============================================================
-
-    logic [3:0] simon_signal;
-    logic simon_valid;
-
-    // Wire game not written yet: these are unused until then
-    /* verilator lint_off UNUSEDSIGNAL */
-    logic [3:0] wire_signal;
-    logic wire_valid;
-    /* verilator lint_on UNUSEDSIGNAL */
+    btn_debounce #(
+        .WIDTH        (4),
+        .STABLE_COUNT (DEBOUNCE_COUNT)
+    ) u_wire_debounce (
+        .clk     (clk),
+        .rst     (rst),
+        .btn_in  (wire_btns),
+        .btn_out (wire_btns_db)
+    );
 
 
     // ============================================================
     // Button Manager
     // ============================================================
 
+    logic [3:0] simon_signal;
+    logic       simon_valid;
+
     buttons_manager u_buttons_manager (
         .clk          (clk),
         .rst          (rst),
 
-        .simon_btns   (simon_btns_db),    // was simon_btns
+        .simon_btns   (simon_btns_db),
         .wire_btns    (wire_btns_db),
 
         .simon_signal (simon_signal),
@@ -138,7 +173,7 @@ module top_level_MakerFair #(
     // ============================================================
 
     /* verilator lint_off UNUSEDSIGNAL */
-    logic [7:0] rng_data;           // only [1:0] used by Simon for now
+    logic [7:0] rng_data;           // Simon [1:0], wire [4:2], onboard all 8
     /* verilator lint_on UNUSEDSIGNAL */
 
     lfsr_8bit_rng u_rng (
@@ -149,7 +184,7 @@ module top_level_MakerFair #(
 
 
     // ============================================================
-    // NEW: Press pulse for the FSM + 1-tick LED echo
+    // Press pulse for the Simon FSM + 1-tick LED echo
     // ============================================================
 
     logic       simon_press;      // 1 clock per press
@@ -172,14 +207,6 @@ module top_level_MakerFair #(
     // Shared lives (3 across ALL games) -> left 3 onboard LEDs
     // ============================================================
 
-    logic simon_wrong;
-    logic [1:0] strikes;    // lives lost, sets the Simon color rules
-    logic wire_wrong;       // TODO: drive from the wire game's checker
-    logic onboard_wrong;    // TODO: drive from the onboard LED game
-    logic game_over;
-
-    assign onboard_wrong = 1'b0;
-
     lives_manager #(
         .NUM_GAMES (3)
     ) u_lives (
@@ -191,10 +218,29 @@ module top_level_MakerFair #(
         .game_over (game_over)
     );
 
-    // Out of lives -> hold EVERY game in reset until rst is pressed.
-    // Use games_rst as the reset of each game (wire, onboard) when added.
-    logic games_rst;
-    assign games_rst = rst | game_over;
+
+    // ============================================================
+    // End of the game: won (all solved) / lost (time or lives)
+    // ============================================================
+
+    logic simon_win;
+
+    bomb_status u_bomb (
+        .clk          (clk),
+        .rst          (rst),
+        .out_of_time  (out_of_time),
+        .out_of_lives (game_over),
+        .simon_done   (simon_win),
+        .wire_done    (wire_solved),
+        .onboard_done (onboard_solved),
+        .won          (bomb_won),
+        .lost         (bomb_lost)
+    );
+
+    // Lost (out of time OR out of lives) -> hold EVERY game in reset
+    // until rst is pressed. bomb_lost comes from a flip-flop, so it is
+    // safe to use as a reset.
+    assign games_rst = rst | bomb_lost;
 
     logic simon_rst;
     assign simon_rst = games_rst;
@@ -231,16 +277,15 @@ module top_level_MakerFair #(
 
     logic [3:0] simon_fsm_led;
     logic       simon_push;
-    logic       simon_win;
 
     simon_fsm u_simon_fsm (
         .clk          (clk),
-        .rst          (simon_rst),        // was rst
+        .rst          (simon_rst),
 
         .tick_1hz     (tick_1hz),
 
         .btn_pressed  (simon_answer),     // button translated to the LED color it answers
-        .btn_valid    (simon_press),      // was simon_valid (level, not a pulse)
+        .btn_valid    (simon_press),      // 1-clock pulse per press
 
         .rng_lsfr     (rng_data[1:0]),
 
@@ -258,13 +303,13 @@ module top_level_MakerFair #(
     simon_led_controller u_simon_led_controller (
         .clk             (clk),
         .tick            (tick_1hz),
-        .rst             (simon_rst | fifo_clr),   // was rst
+        .rst             (simon_rst | fifo_clr),
 
-        .valid           (echo_on),                // was simon_valid
+        .valid           (echo_on),
         .win             (simon_win),
         .push            (simon_push),
 
-        .btn_pressed     (echo_led),               // was simon_signal
+        .btn_pressed     (echo_led),
 
         .fifo_write_data (simon_fsm_led),
 
@@ -273,7 +318,32 @@ module top_level_MakerFair #(
 
 
     // ============================================================
-    // 14-segment display (HT16K33 over I2C)
+    // Wire game
+    // ============================================================
+
+    wire_game u_wire_game (
+        .clk        (clk),
+        .rst        (games_rst),          // stops when the bomb is lost
+        .rng        (rng_data[4:2]),      // different bits than Simon's [1:0]
+        .btn_signal (wire_signal),
+        .btn_valid  (wire_valid),
+        .serial_idx (wire_serial),
+        .solved     (wire_solved),
+        .wrong      (wire_wrong),         // takes a shared life
+        .cut        (wire_cut)            // which wires are cut (VGA)
+    );
+
+    wire_serial_rom u_wire_serial (
+        .serial_idx (wire_serial),
+        .digit0     (ser0),
+        .digit1     (ser1),
+        .digit2     (ser2),
+        .digit3     (ser3)
+    );
+
+
+    // ============================================================
+    // 14-segment display (HT16K33 over I2C): shows the serial number
     // ============================================================
 
     ht16k33_driver #(
@@ -285,7 +355,7 @@ module top_level_MakerFair #(
     ) u_display (
         .clk       (clk),
         .rst       (rst),
-        .digit0    (ser0),               // shows "CARP" as a first test
+        .digit0    (ser0),
         .digit1    (ser1),
         .digit2    (ser2),
         .digit3    (ser3),
@@ -294,44 +364,24 @@ module top_level_MakerFair #(
         .ack_error ()
     );
 
-    logic [3:0] wire_btns_db;
+
+    // ============================================================
+    // Onboard LED game
+    // ============================================================
 
     btn_debounce #(
-        .WIDTH        (4),
+        .WIDTH        (1),
         .STABLE_COUNT (DEBOUNCE_COUNT)
-    ) u_wire_debounce (
+    ) u_btnU_debounce (
         .clk     (clk),
         .rst     (rst),
-        .btn_in  (wire_btns),
-        .btn_out (wire_btns_db)
+        .btn_in  (btnU),
+        .btn_out (btnU_db)
     );
 
-        logic [2:0]  wire_serial;
-    logic        wire_solved;
-    logic [15:0] ser0, ser1, ser2, ser3;
-
-    wire_game u_wire_game (
-        .clk        (clk),
-        .rst        (games_rst),          // stops when out of lives
-        .rng        (rng_data[4:2]),      // different bits than Simon's [1:0]
-        .btn_signal (wire_signal),
-        .btn_valid  (wire_valid),
-        .serial_idx (wire_serial),
-        .solved     (wire_solved),
-        .wrong      (wire_wrong)          // takes a shared life
-    );
-
-    wire_serial_rom u_wire_serial (
-        .serial_idx (wire_serial),
-        .digit0     (ser0),
-        .digit1     (ser1),
-        .digit2     (ser2),
-        .digit3     (ser3)
-    );
-
-        onboard_game u_onboard_game (
+    onboard_game u_onboard_game (
         .clk         (clk),
-        .rst         (games_rst),         // stops when out of lives
+        .rst         (games_rst),         // stops when the bomb is lost
         .rng         (rng_data),
         .serial_idx  (wire_serial),       // same serial as on the display
         .sw          (sw[7:0]),
@@ -340,6 +390,23 @@ module top_level_MakerFair #(
         .answ_random (),                  // not needed any more
         .solved      (onboard_solved),
         .wrong       (onboard_wrong)      // shared lives
+    );
+
+
+    // ============================================================
+    // VGA (640x480): wire panel; all green on win, all red on loss
+    // ============================================================
+
+    vga_wires u_vga (
+        .clk       (clk),
+        .cut       (wire_cut),
+        .win       (bomb_won),
+        .lose      (bomb_lost),
+        .vga_r     (vgaRed),
+        .vga_g     (vgaGreen),
+        .vga_b     (vgaBlue),
+        .vga_hsync (Hsync),
+        .vga_vsync (Vsync)
     );
 
 endmodule

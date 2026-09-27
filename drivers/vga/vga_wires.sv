@@ -23,6 +23,8 @@
 module vga_wires (
     input  logic       clk,         // 100 MHz
     input  logic [3:0] cut,         // wire i has been cut (100 MHz domain)
+    input  logic       win,         // whole screen green (100 MHz domain)
+    input  logic       lose,        // whole screen red   (100 MHz domain)
 
     output logic [3:0] vga_r,
     output logic [3:0] vga_g,
@@ -80,6 +82,8 @@ module vga_wires (
         .hsync_in  (hsync),
         .vsync_in  (vsync),
         .cut       (cut),
+        .win       (win),
+        .lose      (lose),
         .vga_r     (vga_r),
         .vga_g     (vga_g),
         .vga_b     (vga_b),

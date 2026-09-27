@@ -22,7 +22,12 @@
 
           ####=============o            o===================####
 
-  cut comes from the 100 MHz domain; it is synchronized here (2 flip-flops).
+  win  = 1 -> the whole screen is green (bomb defused)
+  lose = 1 -> the whole screen is red   (out of time or out of lives)
+  (win wins if both are ever set.)
+
+  cut, win and lose come from the 100 MHz domain; they are synchronized
+  here (2 flip-flops each).
   Output colour, hsync and vsync are registered together so they stay lined up.
 */
 
@@ -35,6 +40,8 @@ module wire_vga_renderer (
     input  logic               vsync_in,
 
     input  logic [3:0]         cut,         // 100 MHz domain: wire i has been cut
+    input  logic               win,         // 100 MHz domain: whole screen green
+    input  logic               lose,        // 100 MHz domain: whole screen red
 
     output logic [3:0]         vga_r,
     output logic [3:0]         vga_g,
@@ -72,6 +79,8 @@ module wire_vga_renderer (
     localparam logic [11:0] C_GREY   = 12'h888;
     localparam logic [11:0] C_SCREW  = 12'h444;
     localparam logic [11:0] C_COPPER = 12'hD71;
+    localparam logic [11:0] C_WIN    = 12'h0F0;   // full-screen green
+    localparam logic [11:0] C_LOSE   = 12'hF00;   // full-screen red
 
     function automatic logic [11:0] wire_color(input int i);
         case (i)
@@ -83,13 +92,19 @@ module wire_vga_renderer (
     endfunction
 
     // ------------------------------------------------------------------
-    // cut: 100 MHz -> pixel clock
+    // cut / win / lose: 100 MHz -> pixel clock
     // ------------------------------------------------------------------
     logic [3:0] cut_s0, cut_s1;
+    logic       win_s0, win_s1;
+    logic       lose_s0, lose_s1;
 
     always_ff @(posedge clk_pix) begin
-        cut_s0 <= cut;
-        cut_s1 <= cut_s0;
+        cut_s0  <= cut;
+        cut_s1  <= cut_s0;
+        win_s0  <= win;
+        win_s1  <= win_s0;
+        lose_s0 <= lose;
+        lose_s1 <= lose_s0;
     end
 
     // ------------------------------------------------------------------
@@ -135,6 +150,12 @@ module wire_vga_renderer (
                     pix = wire_color(i);
             end
         end
+
+        // end of the game: paint over everything
+        if (win_s1)
+            pix = C_WIN;
+        else if (lose_s1)
+            pix = C_LOSE;
     end
 
     // ------------------------------------------------------------------
