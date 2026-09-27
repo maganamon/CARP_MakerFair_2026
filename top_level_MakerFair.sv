@@ -17,6 +17,8 @@ module top_level_MakerFair #(
     input  logic [3:0] simon_btns,
     input  logic [3:0] wire_btns,
 
+    input logic        timer_sw
+
     output logic [3:0] simon_led,
     output logic [2:0] lives_led,     // LD15, LD14, LD13: shared lives for ALL games
     output logic       wire_led,
@@ -147,6 +149,7 @@ module top_level_MakerFair #(
         .CLK         (clk),
         .RST         (rst),
         .TICK        (tick_1hz),
+        .SHORT_TIME  (timer_sw_s1),
 
         .DATA_OUT    (countdown_data),
         .MODE_OUT    (countdown_mode),

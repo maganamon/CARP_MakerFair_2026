@@ -4,7 +4,8 @@
 // Engineer:
 //
 // Countdown Timer
-// Starts at 05:00
+// Starts at 05:00, or 03:00 when SHORT_TIME is 1 (SW15 up)
+// SHORT_TIME is only read on reset: flip SW15, then press reset
 // TICK should pulse once per second
 //////////////////////////////////////////////////////////////////////////////////
 
@@ -12,6 +13,7 @@ module CountDown_7seg(
     input  logic        CLK,
     input  logic        RST,
     input  logic        TICK,
+    input  logic        SHORT_TIME,     // 1 = 3-minute game, 0 = 5-minute game
 
     output logic [15:0] DATA_OUT,
     output logic        MODE_OUT,
@@ -39,9 +41,9 @@ module CountDown_7seg(
 
         if (RST) begin
 
-            // Reset timer to 05:00
+            // Reset timer to 05:00, or 03:00 in short mode
             min_tens <= 4'd0;
-            min_ones <= 4'd5;
+            min_ones <= SHORT_TIME ? 4'd3 : 4'd5;
             sec_tens <= 4'd0;
             sec_ones <= 4'd0;
 
