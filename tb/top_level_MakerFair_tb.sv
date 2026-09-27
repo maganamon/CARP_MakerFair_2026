@@ -102,6 +102,42 @@ module top_level_MakerFair_tb;
     // ------------------------------------------------------------------
     int n_pass = 0, n_fail = 0;
 
+    // ------------------------------------------------------------------
+    // Color rules: reference copy of simon_color_map's table
+    // (edit both together). index: 0 BLUE, 1 YELLOW, 2 GREEN, 3 RED
+    // ------------------------------------------------------------------
+    function automatic logic [3:0] ref_map(input logic [3:0] led, input logic [1:0] s);
+        logic [3:0] b;
+        b = 4'b0000;
+        case (s)
+            2'd0:    case (led) 4'b0001: b = 4'b1000; 4'b0010: b = 4'b0100;
+                                4'b0100: b = 4'b0010; 4'b1000: b = 4'b0001; default: b = 4'b0000; endcase
+            2'd1:    case (led) 4'b0001: b = 4'b0010; 4'b0010: b = 4'b0001;
+                                4'b0100: b = 4'b1000; 4'b1000: b = 4'b0100; default: b = 4'b0000; endcase
+            default: case (led) 4'b0001: b = 4'b0100; 4'b0010: b = 4'b1000;
+                                4'b0100: b = 4'b0001; 4'b1000: b = 4'b0010; default: b = 4'b0000; endcase
+        endcase
+        ref_map = b;
+    endfunction
+
+    // Strikes as the player sees them on the lives LEDs
+    function automatic logic [1:0] strikes_now();
+        case (lives_led)
+            3'b111:  strikes_now = 2'd0;
+            3'b110:  strikes_now = 2'd1;
+            default: strikes_now = 2'd2;
+        endcase
+    endfunction
+
+    // The button the player must press for a shown color, right now
+    function automatic logic [3:0] answer(input logic [3:0] led);
+        answer = ref_map(led, strikes_now());
+    endfunction
+
+    function automatic logic [3:0] rot(input logic [3:0] v);   // a different one-hot
+        rot = {v[2:0], v[3]};
+    endfunction
+
     task automatic check(input bit cond, input string msg);
         if (cond) begin
             n_pass++;
@@ -190,7 +226,7 @@ module top_level_MakerFair_tb;
         else watch_playback(r, $sformatf("%s round %0d", tag, r));
         for (k = 0; k < r && ok; k++) begin
             w0 = wrong_cnt;
-            press_btn(seq[k], HOLD);
+            press_btn(answer(seq[k]), HOLD);
             if (wrong_cnt != w0) begin
                 check(0, $sformatf("%s round %0d: correct press #%0d (%b) accepted", tag, r, k+1, seq[k]));
                 ok = 0;
@@ -206,7 +242,7 @@ module top_level_MakerFair_tb;
         check(got, {tag, ": step 1 added"});
         watch_playback(1, tag);
         w0 = wrong_cnt;
-        press_btn({seq[0][2:0], seq[0][3]}, HOLD);    // rotate -> wrong button
+        press_btn(rot(answer(seq[0])), HOLD);         // any other button = wrong
         check(wrong_cnt == w0 + 1, {tag, ": wrong press detected once"});
         check(lives_led === expect_leds,
               $sformatf("%s: lives_led = %b (got %b)", tag, expect_leds, lives_led));
@@ -240,15 +276,16 @@ module top_level_MakerFair_tb;
         wait_for_push(1, 50, got);
         watch_playback(1, "T2 round 1");
         p0 = press_cnt; w0 = wrong_cnt;
-        press_btn(seq[0], HOLD);
+        press_btn(answer(seq[0]), HOLD);
         check(press_cnt == p0 + 1,
               $sformatf("T2 bouncy press counted exactly once (saw %0d)", press_cnt - p0));
         check(wrong_cnt == w0, "T2 correct press accepted (no life lost)");
-        check(simon_led === seq[0],
-              $sformatf("T2 simon_led echoes the pressed button %b after release (got %b)", seq[0], simon_led));
+        check(simon_led === answer(seq[0]),
+              $sformatf("T2 simon_led echoes the pressed button %b after release (got %b)", answer(seq[0]), simon_led));
         // wait for the echo to turn off
         n0 = 0;
         while (dut.echo_on === 1'b1 && n0 < 3*TICK_DIV) begin @(negedge clk); n0++; end
+        repeat (2) @(negedge clk);   // let the monitor (posedge) record echo_len first
         check(echo_len >= TICK_DIV && echo_len <= 2*TICK_DIV + 2,
               $sformatf("T2 echo lasted %0d clocks (expected %0d..%0d = 1..2 ticks)",
                         echo_len, TICK_DIV, 2*TICK_DIV));
@@ -268,7 +305,7 @@ module top_level_MakerFair_tb;
         wait_for_push(1, 50, got);
         watch_playback(1, "T4 round 1");
         p0 = press_cnt; w0 = wrong_cnt;
-        press_btn(seq[0], 3*TICK_DIV);               // hold for ~3 "seconds"
+        press_btn(answer(seq[0]), 3*TICK_DIV);       // hold for ~3 "seconds"
         check(press_cnt == p0 + 1,
               $sformatf("T4 3-tick hold counted exactly once (saw %0d)", press_cnt - p0));
         check(wrong_cnt == w0, "T4 no life lost from holding the button");

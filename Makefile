@@ -14,7 +14,8 @@ WAVE    := wave.vcd
 TOP_SRCS := top_level_MakerFair.sv common_rtl/*.sv inputs_rtl/*.sv \
             games/simon_game/simon_fsm.sv \
             games/simon_game/simon_led_controller.sv \
-            games/simon_game/simon_press_echo.sv
+            games/simon_game/simon_press_echo.sv \
+            games/simon_game/simon_color_map.sv
 
 all: lint icarus sim
 

@@ -7,6 +7,11 @@
 /*
     This is to act as a psuedo random number generator.
     Feedback counter.
+
+    The top level ties rst to 1'b0 so the LFSR free-runs from the moment the
+    FPGA is programmed; that way each game starts at a different point in the
+    sequence. Because it is never reset on the board, lfsr needs a start
+    value: an LFSR that starts at all zeros stays at zero forever.
 */
 module lfsr_8bit_rng(
     input  logic       clk,
@@ -15,22 +20,25 @@ module lfsr_8bit_rng(
     //output logic finished
 );
 
-    logic feedback;
-    assign feedback = output_data[7];
+    logic [7:0] lfsr = 8'b1111_1111;   // start value loaded when the FPGA is programmed
+    logic       feedback;
 
-always_ff @(posedge clk or posedge rst) begin
-    if (rst)
-        output_data <= 8'b1111_1111;
-    else begin
-        output_data[0] <= feedback;
-        output_data[1] <= output_data[0];
-        output_data[2] <= output_data[1] ^ feedback;
-        output_data[3] <= output_data[2] ^ feedback;
-        output_data[4] <= output_data[3] ^ feedback;
-        output_data[5] <= output_data[4];
-        output_data[6] <= output_data[5];
-        output_data[7] <= output_data[6];
+    assign feedback    = lfsr[7];
+    assign output_data = lfsr;
+
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst)
+            lfsr <= 8'b1111_1111;
+        else begin
+            lfsr[0] <= feedback;
+            lfsr[1] <= lfsr[0];
+            lfsr[2] <= lfsr[1] ^ feedback;
+            lfsr[3] <= lfsr[2] ^ feedback;
+            lfsr[4] <= lfsr[3] ^ feedback;
+            lfsr[5] <= lfsr[4];
+            lfsr[6] <= lfsr[5];
+            lfsr[7] <= lfsr[6];
+        end
     end
-end
 
 endmodule

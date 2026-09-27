@@ -23,10 +23,9 @@ module top_level_MakerFair #(
     output logic [7:0] seg,
     output logic [3:0] an,
 
-    output logic       out_of_time,
-    output logic [3:0] debug_btn_led
+    output logic       out_of_time
 );
-assign debug_btn_led = simon_btns;
+
     // ============================================================
     // NEW: Debounce the Simon buttons (sync + 10 ms stable)
     // ============================================================
@@ -134,7 +133,7 @@ assign debug_btn_led = simon_btns;
 
     lfsr_8bit_rng u_rng (
         .clk         (clk),
-        .rst         (1'b0), // if we reset the games will always grab 8b'1111_1111
+        .rst         (1'b0),          // free-running: never reset, so every game starts differently
         .output_data (rng_data)
     );
 
@@ -164,6 +163,7 @@ assign debug_btn_led = simon_btns;
     // ============================================================
 
     logic simon_wrong;
+    logic [1:0] strikes;    // lives lost, sets the Simon color rules
     logic wire_wrong;       // TODO: drive from the wire game's checker
     logic onboard_wrong;    // TODO: drive from the onboard LED game
     logic game_over;
@@ -178,6 +178,7 @@ assign debug_btn_led = simon_btns;
         .rst       (rst),
         .lose_life ({onboard_wrong, wire_wrong, simon_wrong}),
         .lives_led (lives_led),
+        .strikes   (strikes),
         .game_over (game_over)
     );
 
@@ -201,6 +202,21 @@ assign debug_btn_led = simon_btns;
 
 
     // ============================================================
+    // Simon color rules: which button answers which LED depends on
+    // strikes (lives lost). Translates the pressed button into the
+    // LED color it answers, so simon_fsm itself does not change.
+    // ============================================================
+
+    logic [3:0] simon_answer;
+
+    simon_color_map u_simon_color_map (
+        .strikes   (strikes),
+        .btn_in    (simon_signal),
+        .led_equiv (simon_answer)
+    );
+
+
+    // ============================================================
     // Simon FSM
     // ============================================================
 
@@ -214,7 +230,7 @@ assign debug_btn_led = simon_btns;
 
         .tick_1hz     (tick_1hz),
 
-        .btn_pressed  (simon_signal),
+        .btn_pressed  (simon_answer),     // button translated to the LED color it answers
         .btn_valid    (simon_press),      // was simon_valid (level, not a pulse)
 
         .rng_lsfr     (rng_data[1:0]),

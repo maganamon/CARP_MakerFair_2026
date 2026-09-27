@@ -32,6 +32,7 @@ module lives_manager #(
     input  logic                 rst,
     input  logic [NUM_GAMES-1:0] lose_life,  // 1-clock pulse per mistake, one bit per game
     output logic [2:0]           lives_led,  // [2]=LD15 (leftmost), [1]=LD14, [0]=LD13
+    output logic [1:0]           strikes,    // lives lost: 0..3 (Simon color rules)
     output logic                 game_over
 );
 
@@ -39,6 +40,7 @@ module lives_manager #(
     logic       any_mistake;
 
     assign any_mistake = |lose_life;
+    assign strikes     = 2'd3 - lives;
 
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -61,21 +63,3 @@ module lives_manager #(
     end
 
 endmodule
-
-/* 
-|lose_life explanation:
-lose_life = 3'b000;  // no game reported a mistake
-any_mistake = 1'b0;
-
-lose_life = 3'b001;  // Simon reported a mistake
-any_mistake = 1'b1;
-
-lose_life = 3'b010;  // Wire game reported a mistake
-any_mistake = 1'b1;
-
-lose_life = 3'b100;  // LED game reported a mistake
-any_mistake = 1'b1;
-
-lose_life = 3'b101;  // Simon and LED both reported one
-any_mistake = 1'b1;
-*/
