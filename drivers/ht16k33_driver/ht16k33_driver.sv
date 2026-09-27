@@ -1,3 +1,4 @@
+`default_nettype wire
 `timescale 1ns / 1ps
 ////////////////////////////////////////////////////////////////////////////////
 // Design: HT16K33 4-digit 14-segment display driver (I2C)
@@ -205,3 +206,4 @@ module ht16k33_driver #(
     end
 
 endmodule
+`default_nettype wire
