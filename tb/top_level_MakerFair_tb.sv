@@ -1,0 +1,339 @@
+`timescale 1ns / 1ps
+////////////////////////////////////////////////////////////////////////////////
+// Testbench: top_level_MakerFair (Simon game + shared lives)
+//
+// Drives only the real board inputs (simon_btns with switch bounce, rst)
+// and checks the board outputs (simon_led, lives_led). A few internal
+// signals are probed to know what the game expects:
+//   dut.simon_push / dut.simon_fsm_led  -> the random step just added
+//   dut.simon_press, dut.echo_on        -> press pulses / LED echo timing
+//   dut.simon_wrong, dut.simon_win, dut.game_over
+//   dut.u_simon_led_controller.u_simon_fifo.count
+//
+// Speed-up: 1 "second" = TICK_DIV clocks and the debouncer waits DB_COUNT
+// clocks (passed to the top level's TICK_COUNT / DEBOUNCE_COUNT parameters).
+//
+// Tests
+//   T1  reset: 3 lives, first Simon step added
+//   T2  one bouncy press -> exactly one press, echo on simon_led for 1-2 ticks
+//   T3  a blip shorter than the debounce time is ignored
+//   T4  a very long hold still counts as one press
+//   T5  full game through the real buttons -> win, simon_led = 1111, 3 lives
+//   T6  wrong presses: lives 3 -> 2 -> 1 -> 0, FIFO cleared each time,
+//       game over stops Simon, rst brings everything back
+////////////////////////////////////////////////////////////////////////////////
+
+/* verilator lint_off BLKSEQ */
+/* verilator lint_off UNUSEDSIGNAL */
+module top_level_MakerFair_tb;
+
+    // ------------------------------------------------------------------
+    // Parameters
+    // ------------------------------------------------------------------
+    localparam int CLK_PERIOD = 10;    // 100 MHz
+    localparam int TICK_DIV   = 200;   // 1 "second" = 200 clocks in sim
+    localparam int DB_COUNT   = 20;    // debounce time = 20 clocks in sim
+    localparam int HOLD       = 40;    // clocks a button is held (after bounce)
+
+    // ------------------------------------------------------------------
+    // DUT
+    // ------------------------------------------------------------------
+    logic       clk = 1'b0;
+    logic       rst;
+    logic [3:0] simon_btns;
+    logic [3:0] wire_btns;
+
+    logic [3:0] simon_led;
+    logic [2:0] lives_led;
+    logic [7:0] seg;
+    logic [3:0] an;
+    logic       out_of_time;
+
+    top_level_MakerFair #(
+        .TICK_COUNT     (TICK_DIV),
+        .DEBOUNCE_COUNT (DB_COUNT)
+    ) dut (
+        .clk         (clk),
+        .rst         (rst),
+        .simon_btns  (simon_btns),
+        .wire_btns   (wire_btns),
+        .simon_led   (simon_led),
+        .lives_led   (lives_led),
+        .seg         (seg),
+        .an          (an),
+        .out_of_time (out_of_time)
+    );
+
+    always #(CLK_PERIOD/2) clk = ~clk;
+
+    // ------------------------------------------------------------------
+    // Scoreboard / monitors
+    // ------------------------------------------------------------------
+    logic [3:0] seq [0:15];   // steps added in the current Simon game
+    int n_push     = 0;
+    int press_cnt  = 0;       // press pulses seen by the FSM
+    int wrong_cnt  = 0;
+    int cyc        = 0;
+    int press_cyc  = 0;
+    int echo_len   = -1;      // clocks from last press to echo turning off
+    logic echo_d   = 1'b0;
+
+    always @(posedge clk) begin
+        cyc = cyc + 1;
+        if (dut.simon_wrong === 1'b1) begin
+            wrong_cnt = wrong_cnt + 1;
+            n_push    = 0;                    // FSM starts a new sequence
+        end
+        if (dut.simon_push === 1'b1) begin
+            if (n_push < 16) seq[n_push] = dut.simon_fsm_led;
+            n_push = n_push + 1;
+        end
+        if (dut.simon_press === 1'b1) begin
+            press_cnt = press_cnt + 1;
+            press_cyc = cyc;
+        end
+        if (echo_d === 1'b1 && dut.echo_on === 1'b0)
+            echo_len = cyc - press_cyc;
+        echo_d = dut.echo_on;
+    end
+
+    // ------------------------------------------------------------------
+    // Check / report
+    // ------------------------------------------------------------------
+    int n_pass = 0, n_fail = 0;
+
+    task automatic check(input bit cond, input string msg);
+        if (cond) begin
+            n_pass++;
+            $display("[PASS] %0t  %s", $time, msg);
+        end else begin
+            n_fail++;
+            $display("[FAIL] %0t  %s   (fsm state=%0d simon_led=%b lives_led=%b)",
+                     $time, msg, dut.u_simon_fsm.state, simon_led, lives_led);
+        end
+    endtask
+
+    // ------------------------------------------------------------------
+    // Stimulus helpers (inputs change on negedge)
+    // ------------------------------------------------------------------
+    task automatic reset_board();
+        @(negedge clk);
+        rst = 1'b1; simon_btns = 4'b0000; wire_btns = 4'b0000;
+        repeat (5) @(negedge clk);
+        n_push = 0; press_cnt = 0; wrong_cnt = 0; echo_len = -1;
+        rst = 1'b0;
+    endtask
+
+    // A real button press: bounce on, hold, bounce off, settle
+    task automatic press_btn(input logic [3:0] b, input int hold);
+        repeat (3) begin
+            @(negedge clk) simon_btns = b;
+            repeat (2) @(negedge clk);
+            simon_btns = 4'b0000;
+            repeat (2) @(negedge clk);
+        end
+        simon_btns = b;
+        repeat (hold) @(negedge clk);
+        repeat (3) begin
+            simon_btns = 4'b0000;
+            repeat (2) @(negedge clk);
+            simon_btns = b;
+            repeat (2) @(negedge clk);
+        end
+        simon_btns = 4'b0000;
+        repeat (3*DB_COUNT) @(negedge clk);   // release settles
+    endtask
+
+    task automatic wait_for_push(input int target, input int max_cycles, output bit ok);
+        int i;
+        ok = (n_push >= target);
+        i  = 0;
+        while (!ok && i < max_cycles) begin
+            @(negedge clk);
+            ok = (n_push >= target);
+            i++;
+        end
+    endtask
+
+    task automatic wait_cond_win(input int max_cycles, output bit ok);
+        int i;
+        ok = (dut.simon_win === 1'b1);
+        i  = 0;
+        while (!ok && i < max_cycles) begin
+            @(negedge clk);
+            ok = (dut.simon_win === 1'b1);
+            i++;
+        end
+    endtask
+
+    // Wait out the playback of r steps (2 ticks each), printing simon_led
+    // after every tick so you can see what the FIFO playback looks like.
+    task automatic watch_playback(input int r, input string tag);
+        int t;
+        $write("[INFO] %0t  %s playback, simon_led after each tick:", $time, tag);
+        for (t = 0; t < 2*r; t++) begin
+            @(posedge dut.tick_1hz);
+            @(negedge clk);
+            $write(" %b", simon_led);
+        end
+        $write("\n");
+    endtask
+
+    // Wait for round r (r steps), watch playback, press the whole sequence
+    task automatic play_round(input int r, input string tag, output bit ok);
+        int k, w0;
+        bit got;
+        ok = 1;
+        wait_for_push(r, 20*TICK_DIV, got);
+        check(got, $sformatf("%s round %0d: step %0d added", tag, r, r));
+        if (!got) ok = 0;
+        else watch_playback(r, $sformatf("%s round %0d", tag, r));
+        for (k = 0; k < r && ok; k++) begin
+            w0 = wrong_cnt;
+            press_btn(seq[k], HOLD);
+            if (wrong_cnt != w0) begin
+                check(0, $sformatf("%s round %0d: correct press #%0d (%b) accepted", tag, r, k+1, seq[k]));
+                ok = 0;
+            end
+        end
+    endtask
+
+    // Press a wrong button in round 1 and check a life is taken
+    task automatic lose_one_life(input logic [2:0] expect_leds, input string tag);
+        int w0;
+        bit got;
+        wait_for_push(1, 20*TICK_DIV, got);
+        check(got, {tag, ": step 1 added"});
+        watch_playback(1, tag);
+        w0 = wrong_cnt;
+        press_btn({seq[0][2:0], seq[0][3]}, HOLD);    // rotate -> wrong button
+        check(wrong_cnt == w0 + 1, {tag, ": wrong press detected once"});
+        check(lives_led === expect_leds,
+              $sformatf("%s: lives_led = %b (got %b)", tag, expect_leds, lives_led));
+    endtask
+
+    // ------------------------------------------------------------------
+    // Tests
+    // ------------------------------------------------------------------
+    int  p0, w0, n0, l0;
+    bit  got, ok;
+
+    initial begin
+        $dumpfile("top_level_MakerFair_tb.vcd");
+        $dumpvars(0, top_level_MakerFair_tb);
+
+        rst = 1'b1; simon_btns = 4'b0000; wire_btns = 4'b0000;
+
+        // ---------------- T1: reset ----------------
+        $display("\n==== T1: reset ====");
+        repeat (5) @(negedge clk);
+        check(lives_led === 3'b111, "T1 3 lives (111) during reset");
+        reset_board();
+        wait_for_push(1, 50, got);
+        check(got, "T1 Simon adds its first step after reset");
+        check(lives_led === 3'b111, "T1 still 3 lives after reset released");
+        check(out_of_time === 1'b0, "T1 out_of_time = 0 at start");
+
+        // ---------------- T2: one bouncy press ----------------
+        $display("\n==== T2: one bouncy press -> one press + 1-tick echo ====");
+        reset_board();
+        wait_for_push(1, 50, got);
+        watch_playback(1, "T2 round 1");
+        p0 = press_cnt; w0 = wrong_cnt;
+        press_btn(seq[0], HOLD);
+        check(press_cnt == p0 + 1,
+              $sformatf("T2 bouncy press counted exactly once (saw %0d)", press_cnt - p0));
+        check(wrong_cnt == w0, "T2 correct press accepted (no life lost)");
+        check(simon_led === seq[0],
+              $sformatf("T2 simon_led echoes the pressed button %b after release (got %b)", seq[0], simon_led));
+        // wait for the echo to turn off
+        n0 = 0;
+        while (dut.echo_on === 1'b1 && n0 < 3*TICK_DIV) begin @(negedge clk); n0++; end
+        check(echo_len >= TICK_DIV && echo_len <= 2*TICK_DIV + 2,
+              $sformatf("T2 echo lasted %0d clocks (expected %0d..%0d = 1..2 ticks)",
+                        echo_len, TICK_DIV, 2*TICK_DIV));
+
+        // ---------------- T3: blip shorter than debounce ----------------
+        $display("\n==== T3: blip shorter than the debounce time ====");
+        p0 = press_cnt;
+        @(negedge clk) simon_btns = 4'b0001;
+        repeat (DB_COUNT/2) @(negedge clk);
+        simon_btns = 4'b0000;
+        repeat (3*DB_COUNT) @(negedge clk);
+        check(press_cnt == p0, "T3 short blip ignored (no press)");
+
+        // ---------------- T4: long hold ----------------
+        $display("\n==== T4: very long hold is still one press ====");
+        reset_board();
+        wait_for_push(1, 50, got);
+        watch_playback(1, "T4 round 1");
+        p0 = press_cnt; w0 = wrong_cnt;
+        press_btn(seq[0], 3*TICK_DIV);               // hold for ~3 "seconds"
+        check(press_cnt == p0 + 1,
+              $sformatf("T4 3-tick hold counted exactly once (saw %0d)", press_cnt - p0));
+        check(wrong_cnt == w0, "T4 no life lost from holding the button");
+
+        // ---------------- T5: full game ----------------
+        $display("\n==== T5: full game through the real buttons ====");
+        reset_board();
+        ok = 1;
+        for (int r = 1; r <= 3 && ok; r++)
+            play_round(r, "T5", ok);
+        if (ok) begin
+            wait_cond_win(20, got);
+            check(got, "T5 win after round 3");
+            repeat (5) @(negedge clk);
+            check(simon_led === 4'b1111, $sformatf("T5 simon_led = 1111 on win (got %b)", simon_led));
+            check(lives_led === 3'b111, "T5 no lives lost in a clean game");
+        end
+
+        // ---------------- T6: lives + game over ----------------
+        $display("\n==== T6: wrong presses, shared lives, game over ====");
+        reset_board();
+        lose_one_life(3'b110, "T6 mistake 1");
+        wait_for_push(1, 50, got);
+        repeat (3) @(negedge clk);
+        check(dut.u_simon_led_controller.u_simon_fifo.count == 1,
+              $sformatf("T6 FIFO cleared on the new sequence (count=%0d, expected 1)",
+                        dut.u_simon_led_controller.u_simon_fifo.count));
+        lose_one_life(3'b100, "T6 mistake 2");
+        lose_one_life(3'b000, "T6 mistake 3");
+        repeat (5) @(negedge clk);
+        check(dut.game_over === 1'b1, "T6 game_over after the 3rd mistake");
+
+        // Game over: Simon stopped, buttons do nothing
+        n0 = n_push; w0 = wrong_cnt; l0 = int'(lives_led);
+        repeat (3*TICK_DIV) @(negedge clk);
+        check(n_push == n0, "T6 Simon adds no steps while game over");
+        press_btn(4'b0001, HOLD);
+        press_btn(4'b0010, HOLD);
+        check(wrong_cnt == w0 && int'(lives_led) == l0,
+              "T6 presses during game over change nothing");
+        check(dut.simon_win === 1'b0, "T6 no win while game over");
+
+        // rst gives everything back
+        reset_board();
+        repeat (3) @(negedge clk);
+        check(lives_led === 3'b111, "T6 rst restores 3 lives");
+        check(dut.game_over === 1'b0, "T6 rst clears game_over");
+        wait_for_push(1, 50, got);
+        check(got, "T6 Simon starts again after rst");
+
+        // ---------------- Summary ----------------
+        $display("\n==================================================");
+        $display("  top_level_MakerFair_tb: %0d passed, %0d failed", n_pass, n_fail);
+        $display("  %s", (n_fail == 0) ? "ALL TESTS PASSED" : "SOME TESTS FAILED");
+        $display("==================================================\n");
+        $finish;
+    end
+
+    // Global watchdog
+    initial begin
+        #(CLK_PERIOD * TICK_DIV * 400);
+        $display("[FAIL] global timeout");
+        $finish;
+    end
+
+endmodule
+/* verilator lint_on UNUSEDSIGNAL */
+/* verilator lint_on BLKSEQ */

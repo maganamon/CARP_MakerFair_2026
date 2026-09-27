@@ -8,7 +8,7 @@
     This is to act as a psuedo random number generator.
     Feedback counter.
 */
-module lsfr_8bit_rng(
+module lfsr_8bit_rng(
     input  logic       clk,
     input  logic       rst,
     output logic [7:0] output_data
@@ -18,7 +18,7 @@ module lsfr_8bit_rng(
     logic feedback;
     assign feedback = output_data[7];
 
-always_ff @(posedge clk) begin
+always_ff @(posedge clk or posedge rst) begin
     if (rst)
         output_data <= 8'b1111_1111;
     else begin

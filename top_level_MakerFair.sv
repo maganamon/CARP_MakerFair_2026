@@ -5,7 +5,11 @@
 // Engineer: CARP
 //////////////////////////////////////////////////////////////////////////////////
 
-module top_level_MakerFair (
+module top_level_MakerFair #(
+    // Board values. The testbench passes smaller ones to simulate fast.
+    parameter int TICK_COUNT     = 100_000_000,   // clocks per 1 Hz tick
+    parameter int DEBOUNCE_COUNT = 1_000_000      // 10 ms @ 100 MHz
+)(
 
     input  logic       clk,
     input  logic       rst,
@@ -30,7 +34,7 @@ module top_level_MakerFair (
 
     btn_debounce #(
         .WIDTH        (4),
-        .STABLE_COUNT (1_000_000)     // 10 ms @ 100 MHz
+        .STABLE_COUNT (DEBOUNCE_COUNT)
     ) u_simon_debounce (
         .clk     (clk),
         .rst     (rst),
@@ -44,10 +48,13 @@ module top_level_MakerFair (
     // ============================================================
 
     logic [3:0] simon_signal;
-    logic [3:0] wire_signal;
-
     logic simon_valid;
+
+    // Wire game not written yet: these are unused until then
+    /* verilator lint_off UNUSEDSIGNAL */
+    logic [3:0] wire_signal;
     logic wire_valid;
+    /* verilator lint_on UNUSEDSIGNAL */
 
 
     // ============================================================
@@ -76,7 +83,7 @@ module top_level_MakerFair (
     logic tick_1hz;
 
     tick_gen #(
-        .MAX_COUNT(100_000_000)
+        .MAX_COUNT(TICK_COUNT)
     ) u_tick_gen (
         .clk  (clk),
         .rst  (rst),
@@ -120,9 +127,11 @@ module top_level_MakerFair (
     // LFSR
     // ============================================================
 
-    logic [7:0] rng_data;
+    /* verilator lint_off UNUSEDSIGNAL */
+    logic [7:0] rng_data;           // only [1:0] used by Simon for now
+    /* verilator lint_on UNUSEDSIGNAL */
 
-    lsfr_8bit_rng u_rng (
+    lfsr_8bit_rng u_rng (
         .clk         (clk),
         .rst         (rst),
         .output_data (rng_data)

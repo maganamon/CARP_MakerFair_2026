@@ -17,7 +17,7 @@ all: lint icarus sim
 
 lint:
 	@echo "Linting with Verilator...."
-	verilator --lint-only --timing -Wall $(ALL_SV)
+	verilator --lint-only --timing -Wall -Wno-MULTITOP $(ALL_SV)
 	@echo ".... End Lint."
 
 
@@ -51,3 +51,15 @@ win_build:
 
 win_open:
 	& "C:\Xilinx\2025.1\Vivado\bin\vivado.bat" ".\vivado_project\MakerFaire_2026.xpr"
+
+TOP_SRCS := top_level_MakerFair.sv common_rtl/*.sv inputs_rtl/*.sv \
+            games/simon_game/simon_fsm.sv \
+            games/simon_game/simon_led_controller.sv \
+            games/simon_game/simon_press_echo.sv
+
+top-sim:
+	iverilog -g2012 -s top_level_MakerFair_tb -o top_tb.vvp tb/top_level_MakerFair_tb.sv $(TOP_SRCS)
+	vvp top_tb.vvp
+
+top-lint:
+	verilator --lint-only --timing -Wall --top-module top_level_MakerFair_tb tb/top_level_MakerFair_tb.sv $(TOP_SRCS)

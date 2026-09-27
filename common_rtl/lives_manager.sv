@@ -78,3 +78,4 @@ any_mistake = 1'b1;
 
 lose_life = 3'b101;  // Simon and LED both reported one
 any_mistake = 1'b1;
+*/
