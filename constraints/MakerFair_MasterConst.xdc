@@ -70,12 +70,12 @@ set_property PACKAGE_PIN U16 [get_ports {out_of_time}]
 #	set_property IOSTANDARD LVCMOS33 [get_ports {LED[11]}]
 #set_property PACKAGE_PIN P3 [get_ports {LED[12]}]					
 #	set_property IOSTANDARD LVCMOS33 [get_ports {LED[12]}]
-#set_property PACKAGE_PIN N3 [get_ports {LED[13]}]					
-#	set_property IOSTANDARD LVCMOS33 [get_ports {LED[13]}]
-#set_property PACKAGE_PIN P1 [get_ports {LED[14]}]					
-#	set_property IOSTANDARD LVCMOS33 [get_ports {LED[14]}]
-#set_property PACKAGE_PIN L1 [get_ports {LED[15]}]					
-#	set_property IOSTANDARD LVCMOS33 [get_ports {LED[15]}]
+set_property PACKAGE_PIN N3 [get_ports {lives_led[0]}]					
+	set_property IOSTANDARD LVCMOS33 [get_ports {lives_led[0]}]
+set_property PACKAGE_PIN P1 [get_ports {lives_led[1]}]					
+	set_property IOSTANDARD LVCMOS33 [get_ports {lives_led[1]}]
+set_property PACKAGE_PIN L1 [get_ports {lives_led[2]}]					
+	set_property IOSTANDARD LVCMOS33 [get_ports {lives_led[2]}]
 	
 	
 #7 segment display

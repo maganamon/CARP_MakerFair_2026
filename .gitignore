@@ -21,3 +21,10 @@ vivado_project/
 
 # Xilinx temporary files
 .Xil/
+
+# Icarus / Verilator build output
+*.vvp
+obj_dir/
+
+# Vivado usage-statistics files (written next to where Vivado is run)
+usage_statistics_webtalk.*
