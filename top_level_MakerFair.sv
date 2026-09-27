@@ -24,8 +24,6 @@ module top_level_MakerFair #(
     output logic [7:0] seg,
     output logic [3:0] an,
 
-    output logic       out_of_time,
-
     input  logic [7:0] sw,            // SW0-SW7: onboard game answer
     input  logic       btnU,          // top button: submit
     output logic [7:0] onboard_led,   // LD0-LD7: the pattern to work from
@@ -41,6 +39,8 @@ module top_level_MakerFair #(
     output logic       Hsync,
     output logic       Vsync
 );
+
+    logic out_of_time;
 
     // ============================================================
     // Signals shared between sections (declared before first use)
