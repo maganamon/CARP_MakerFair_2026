@@ -24,8 +24,9 @@ module top_level_MakerFair #(
     output logic [3:0] an,
 
     output logic       out_of_time
+    output logic [3:0] debug_btn_led,
 );
-
+assign debug_btn_led = simon_btns;
     // ============================================================
     // NEW: Debounce the Simon buttons (sync + 10 ms stable)
     // ============================================================
@@ -133,7 +134,7 @@ module top_level_MakerFair #(
 
     lfsr_8bit_rng u_rng (
         .clk         (clk),
-        .rst         (rst),
+        .rst         (1'b0), // if we reset the games will always grab 8b'1111_1111
         .output_data (rng_data)
     );
 

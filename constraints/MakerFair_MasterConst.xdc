@@ -7,7 +7,15 @@
 set_property PACKAGE_PIN W5 [get_ports clk]							
 	set_property IOSTANDARD LVCMOS33 [get_ports clk]
 	create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports clk]
- 
+
+# DELTE ME
+## XDC: LD8-LD11
+set_property PACKAGE_PIN V13 [get_ports {debug_btn_led[0]}]
+set_property PACKAGE_PIN V3  [get_ports {debug_btn_led[1]}]
+set_property PACKAGE_PIN W3  [get_ports {debug_btn_led[2]}]
+set_property PACKAGE_PIN U3  [get_ports {debug_btn_led[3]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {debug_btn_led[*]}]
+
 # Switches
 #set_property PACKAGE_PIN V17 [get_ports {sw[0]}]					
 #	set_property IOSTANDARD LVCMOS33 [get_ports {sw[0]}]
@@ -178,7 +186,10 @@ set_property PACKAGE_PIN B16 [get_ports {wire_btns[3]}]
 #set_property PACKAGE_PIN C16 [get_ports {JB[7]}]					
 	#set_property IOSTANDARD LVCMOS33 [get_ports {JB[7]}]
  
-
+set_property PULLDOWN true [get_ports {wire_btns[0]}]
+set_property PULLDOWN true [get_ports {wire_btns[1]}]
+set_property PULLDOWN true [get_ports {wire_btns[2]}]
+set_property PULLDOWN true [get_ports {wire_btns[3]}]
 
 ##Pmod Header JC
 ##Sch name = JC1
@@ -235,7 +246,11 @@ set_property PACKAGE_PIN N2 [get_ports {simon_btns[3]}]
 # set_property PACKAGE_PIN N1 [get_ports {vauxn15}]				
 # 	set_property IOSTANDARD LVCMOS33 [get_ports {vauxn15}]
 
-
+## Buttons connect to 3.3V when pressed: pull the pins to 0 when released
+set_property PULLDOWN true [get_ports {simon_btns[0]}]
+set_property PULLDOWN true [get_ports {simon_btns[1]}]
+set_property PULLDOWN true [get_ports {simon_btns[2]}]
+set_property PULLDOWN true [get_ports {simon_btns[3]}]
 
 ##VGA Connector
 #set_property PACKAGE_PIN G19 [get_ports {vgaRed[0]}]				
